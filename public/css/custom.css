@@ -1,0 +1,172 @@
+
+.bg-primary {
+    background-color: #0e436f !important;
+}
+
+.input-group{
+    margin-bottom: 10px;
+}
+.select-domains{
+    height: 40px;
+    width: min-content;
+    padding: 0px 3px !important;
+    padding-right: 25px !important;
+    text-align: left;
+    color: #FFF !important;
+    background-color: #00a5d6 !important;
+
+    -moz-appearance: none;
+    appearance: none;
+    border: 2px solid #1038ef;
+    border-radius: 35px;
+    color: #333;
+    font-size: 16px;
+    padding-left: 10px;
+    background-image: url(/img/select_arrow.png);
+    background-position: right;
+    background-repeat: no-repeat;
+}
+
+.project-name {
+  height: 40px; 
+  min-width: 200px; 
+  padding: 0px 5px; 
+  text-align: center !important;
+}
+
+.project-name, .select-domains {
+  border: 1px solid #00a5d6 !important;
+}
+
+body {
+  background-image: url('/img/bg.png');
+  height: 100vh;
+  background-repeat: no-repeat;
+  background-position: top center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+.col-status{
+    display: grid;
+    align-items: center;
+}
+
+::placeholder {
+    color: #9A9A9A;
+}
+
+.navbar-brand {
+    display: inline-block;
+    padding-top: .32rem;
+    padding-bottom: .32rem;
+    margin-right: 1rem;
+    font-size: 0.95em;
+    line-height: inherit;
+    white-space: nowrap;
+}
+
+.navbar-transparent .navbar-nav .nav-item .nav-link:not(.btn), [class*="bg"] .navbar-nav .nav-item .nav-link:not(.btn) {
+    color: #FFFFFF;
+    border-color: #FFFFFF;
+}
+
+.navbar-light .navbar-brand, .navbar-light .navbar-brand:focus, .navbar-light .navbar-brand:hover {
+    color: #FFFFFF !important;
+    border-color: #FFFFFF !important;
+}
+
+.navbar-toggler {
+    padding: .25rem .75rem;
+    font-size: 1.125rem;
+    line-height: 1;
+    border: 1px solid transparent;
+        border-top-color: transparent;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+    border-radius: .25rem;
+}
+
+.navbar-toggler{
+    background-color: #00a5d6;
+}
+
+.navbar-toggler:not(:disabled):not(.disabled) {
+    cursor: pointer;
+}
+
+.navbar-light, .navbar-toggler {
+    color: rgba(3, 16, 134, 0.5) !important;
+    border-color: rgba(0,0,0,.1) !important;
+}
+
+[type="reset"], [type="submit"], button, html [type="button"] {
+    -webkit-appearance: button;
+}
+
+.navbar-toggler {
+    outline: none !important;
+    cursor: pointer;
+}
+
+.navbar-transparent .navbar-brand, [class*="bg"] .navbar-brand {
+    opacity: 0.9;
+    filter: alpha(opacity=90);
+}
+
+.navbar .container {
+    left: 0;
+    width: 100%;
+    -webkit-transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    -moz-transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    -o-transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    -ms-transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    transition: all 0.33s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    position: relative;
+}
+
+*, ::after, ::before {
+    box-sizing: border-box;
+}
+
+[type="button"]::-moz-focus-inner, [type="reset"]::-moz-focus-inner, [type="submit"]::-moz-focus-inner, button::-moz-focus-inner {
+    padding: 0;
+    border-style: none;
+}
+
+a:focus, a:active, button::-moz-focus-inner, input[type="reset"]::-moz-focus-inner, input[type="button"]::-moz-focus-inner, input[type="submit"]::-moz-focus-inner, select::-moz-focus-inner, input[type="file"] > input[type="button"]::-moz-focus-inner {
+    outline: 0;
+}
+
+.btn-working:focus {
+    background-image: url('/img/Gear-0.2s-30px.svg');
+    background-repeat: no-repeat;
+    background-position: center;
+    color: transparent !important;
+}
+
+.alert {
+    margin: 0px auto 1em;
+} 
+
+.alert ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+.alert li {
+    background: url('/img/fail-1.1s-30px.svg') no-repeat 0 0 transparent;
+    list-style-type: none;
+    margin: 0;
+    padding: 5px 0px 5px 40px;
+    min-height: 30px;
+    vertical-align: middle;
+}
+
+.container th, .container td {
+    vertical-align: middle !important;
+}
+
+/* @import url('css/paper-kit.css'); */
