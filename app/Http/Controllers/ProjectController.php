@@ -77,7 +77,7 @@ class ProjectController extends Controller
         ],[
             'method' => 'repository',
             'type' => 1,
-            'endpointId' => 1, 
+            'endpointId' => $portainerServer->getFirstEndpointId(), 
         ]);
 
         // save stack info

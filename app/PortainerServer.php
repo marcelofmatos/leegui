@@ -33,4 +33,12 @@ class PortainerServer extends Model
         return $this->hasMany(Domain::class);
     }
 
+    public function getFirstEndpoint() {
+        return is_array($this->endpoints) ? $this->endpoints[0] : null;
+    }
+
+    public function getFirstEndpointId() {
+        return is_array($this->endpoints) ? $this->endpoints[0]['Id'] : null;
+    }
+
 }
