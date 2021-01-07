@@ -21,3 +21,8 @@ services:
     volumes:
       - code:/app
       
+volumes:
+  code:
+    driver: local
+  nginx-confd:
+    driver: local
