@@ -23,7 +23,7 @@ RUN apt-get update \
 RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
 
 # Get latest Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
 
 COPY --chown=www-data:www-data . /var/www/html/
 
