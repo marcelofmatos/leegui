@@ -16,7 +16,7 @@ services:
       
   init:
     image: marcelofmatos/leegui
-    command: composer install
+    command: composer self-update --1 && composer install
     restart: "no"
     volumes:
       - code:/app
