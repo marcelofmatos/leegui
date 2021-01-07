@@ -11,6 +11,8 @@ services:
 
   php:    
     image: marcelofmatos/leegui
+    environment:
+      - APP_DEBUG=true
     volumes:
       - code:/var/www/html
       
