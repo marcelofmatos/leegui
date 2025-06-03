@@ -141,9 +141,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.version.outputs.new_version }}
-        release_name: Release ${{ steps.version.outputs.new_version }}
+        release_name: ${{ steps.version.outputs.new_version }}
         body: |
-          ## Release ${{ steps.version.outputs.new_version }}
+          ## ${{ steps.version.outputs.new_version }}
           
           ${{ steps.changelog.outputs.changes }}
         draft: false
