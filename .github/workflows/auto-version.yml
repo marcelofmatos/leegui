@@ -43,11 +43,13 @@ jobs:
     - name: Generate changelog
       id: generate_changelog
       run: |
-        if [ -n "${{ steps.get_version.outputs.latest_tag }}" ]; then
-          # Gera changelog desde a última tag
-          CHANGELOG=$(git log ${{ steps.get_version.outputs.latest_tag }}..HEAD --pretty=format:"* %s (%h)" --no-merges)
+        LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
+        
+        if [ "$LATEST_TAG" != "none" ] && [ -n "$LATEST_TAG" ]; then
+          echo "Generating changelog since $LATEST_TAG"
+          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"* %s (%h)" --no-merges)
         else
-          # Se não há tag anterior, pega os últimos commits
+          echo "Generating changelog for initial release"
           CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges -10)
         fi
         
@@ -55,9 +57,12 @@ jobs:
           CHANGELOG="* Minor updates and improvements"
         fi
         
-        echo "changes<<EOF" >> $GITHUB_OUTPUT
-        echo "$CHANGELOG" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        # Salva o changelog
+        {
+          echo "changes<<EOF"
+          echo "$CHANGELOG"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       uses: actions/create-release@v1
@@ -89,13 +94,15 @@ jobs:
 
     - name: Summary
       run: |
-        echo "## 🚀 New Release Created!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ steps.get_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Changes:" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.generate_changelog.outputs.changes }}" >> $GITHUB_STEP_SUMMARY | head -n1)
+        {
+          echo "## 🚀 New Release Created!"
+          echo ""
+          echo "**Version:** ${{ steps.get_version.outputs.new_version }}"
+          echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}"
+          echo ""
+          echo "### Changes:"
+          echo "${{ steps.generate_changelog.outputs.changes }}"
+        } >> $GITHUB_STEP_SUMMARY | head -n1)
         
         if [ -z "$LATEST_TAG" ]; then
           # Se não há tags, começa com 1.0.0
