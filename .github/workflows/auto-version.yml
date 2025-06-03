@@ -1,0 +1,188 @@
+name: Auto Version on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ main, master ]
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  auto-version:
+    runs-on: ubuntu-latest
+    
+    # Só executa se o PR foi merged (não apenas fechado)
+    if: github.event.pull_request.merged == true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Busca todo o histórico para acessar as tags
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Get latest version
+      id: get_version
+      run: |
+        # Busca a última tag que segue o padrão semver (com ou sem v)
+        LATEST_TAG=$(git tag -l --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+    - name: Create new tag
+      run: |
+        git tag ${{ steps.get_version.outputs.new_tag }}
+        git push origin ${{ steps.get_version.outputs.new_tag }}
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        if [ -n "${{ steps.get_version.outputs.latest_tag }}" ]; then
+          # Gera changelog desde a última tag
+          CHANGELOG=$(git log ${{ steps.get_version.outputs.latest_tag }}..HEAD --pretty=format:"* %s (%h)" --no-merges)
+        else
+          # Se não há tag anterior, pega os últimos commits
+          CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges -10)
+        fi
+        
+        if [ -z "$CHANGELOG" ]; then
+          CHANGELOG="* Minor updates and improvements"
+        fi
+        
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.new_tag }}
+        release_name: Release ${{ steps.get_version.outputs.new_version }}
+        body: |
+          ## Changes in ${{ steps.get_version.outputs.new_version }}
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.latest_tag }}...${{ steps.get_version.outputs.new_tag }}
+        draft: false
+        prerelease: false
+
+    - name: Update package.json version (if exists)
+      run: |
+        if [ -f "package.json" ]; then
+          npm version ${{ steps.get_version.outputs.new_version }} --no-git-tag-version
+          git add package.json
+          if [ -f "package-lock.json" ]; then
+            git add package-lock.json
+          fi
+          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_version }}" || echo "No changes to commit"
+          git push origin main
+        fi
+
+    - name: Summary
+      run: |
+        echo "## 🚀 New Release Created!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.get_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Changes:" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.changelog.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY | head -n1)
+        
+        if [ -z "$LATEST_TAG" ]; then
+          # Se não há tags, começa com 1.0.0
+          echo "No previous tags found, starting with 1.0.0"
+          NEW_VERSION="1.0.0"
+        else
+          echo "Latest tag found: $LATEST_TAG"
+          
+          # Remove o 'v' se presente
+          VERSION_NUMBER=${LATEST_TAG#v}
+          
+          # Separa os componentes da versão
+          IFS='.' read -ra VERSION_PARTS <<< "$VERSION_NUMBER"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Incrementa o patch
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+        fi
+        
+        NEW_TAG="$NEW_VERSION"
+        echo "New version will be: $NEW_TAG"
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+    - name: Create new tag
+      run: |
+        git tag ${{ steps.get_version.outputs.new_tag }}
+        git push origin ${{ steps.get_version.outputs.new_tag }}
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        if [ -n "${{ steps.get_version.outputs.latest_tag }}" ]; then
+          # Gera changelog desde a última tag
+          CHANGELOG=$(git log ${{ steps.get_version.outputs.latest_tag }}..HEAD --pretty=format:"* %s (%h)" --no-merges)
+        else
+          # Se não há tag anterior, pega os últimos commits
+          CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges -10)
+        fi
+        
+        if [ -z "$CHANGELOG" ]; then
+          CHANGELOG="* Minor updates and improvements"
+        fi
+        
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.new_tag }}
+        release_name: Release ${{ steps.get_version.outputs.new_tag }}
+        body: |
+          ## Changes in ${{ steps.get_version.outputs.new_tag }}
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.latest_tag }}...${{ steps.get_version.outputs.new_tag }}
+        draft: false
+        prerelease: false
+
+    - name: Update package.json version (if exists)
+      run: |
+        if [ -f "package.json" ]; then
+          npm version ${{ steps.get_version.outputs.new_version }} --no-git-tag-version
+          git add package.json
+          if [ -f "package-lock.json" ]; then
+            git add package-lock.json
+          fi
+          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_version }}" || echo "No changes to commit"
+          git push origin main
+        fi
+
+    - name: Summary
+      run: |
+        echo "## 🚀 New Release Created!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.get_version.outputs.new_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Changes:" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.changelog.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
