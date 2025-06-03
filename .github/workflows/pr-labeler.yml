@@ -1,265 +1,139 @@
-name: Auto Version on bugfix PR Merge
+name: Auto Label PRs
 
 on:
   pull_request:
-    types: [closed]
-    branches: [main, master]
-  workflow_dispatch:
+    types: [opened, edited]
 
 permissions:
-  contents: write
   pull-requests: write
 
 jobs:
-  # Job para garantir que PR tem labels corretos antes do merge
-  ensure-labels:
+  label:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
-    outputs:
-      has_bug_label: ${{ steps.check_labels.outputs.has_bug_label }}
-      
     steps:
-      - name: Check and add labels if needed
-        id: check_labels
+      - name: Label PRs based on title
         uses: actions/github-script@v7
         with:
           script: |
+            const title = context.payload.pull_request.title;
             const prNumber = context.payload.pull_request.number;
-            const title = context.payload.pull_request.title.toLowerCase();
             
-            // Buscar labels atuais
-            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber
-            });
+            console.log(`Analyzing PR title: "${title}"`);
             
-            const currentLabelNames = currentLabels.map(label => label.name.toLowerCase());
+            const labelsToAdd = [];
             
-            // Verificar se já tem labels de bug
-            const bugLabels = ['urgent', 'bug', 'bugfix', 'hotfix'];
-            let hasBugLabel = bugLabels.some(label => currentLabelNames.includes(label));
+            // === REGRAS DE TIPO DE MUDANÇA ===
             
-            // Se não tem label mas o título sugere que é um fix
-            const fixPatterns = [
-              /^fix:/i,
-              /^fix\(/i,
-              /^bugfix:/i,
-              /^hotfix:/i,
-              /fix.*bug/i,
-              /urgent/i,
-              /critical/i
-            ];
+            // Bug fixes
+            if (/^fix:/i.test(title) || /^fix\(/i.test(title)) {
+              labelsToAdd.push('bug');
+            }
             
-            const titleSuggestsBug = fixPatterns.some(pattern => pattern.test(title));
+            if (/^bugfix:/i.test(title) || /^bugfix\(/i.test(title)) {
+              labelsToAdd.push('bug');
+            }
             
-            if (!hasBugLabel && titleSuggestsBug) {
-              console.log('Title suggests this is a bug fix, adding appropriate label');
+            // Hotfixes (críticos)
+            if (/^hotfix:/i.test(title) || /^hotfix\(/i.test(title)) {
+              labelsToAdd.push('hotfix');
+            }
+            
+            // Features
+            if (/^feat:/i.test(title) || /^feat\(/i.test(title) || /^feature:/i.test(title)) {
+              labelsToAdd.push('feature');
+            }
+            
+            // Melhorias
+            if (/^improve:/i.test(title) || /^enhance:/i.test(title) || /^update:/i.test(title)) {
+              labelsToAdd.push('enhancement');
+            }
+            
+            // Documentação
+            if (/^docs:/i.test(title) || /^doc:/i.test(title) || /^readme:/i.test(title)) {
+              labelsToAdd.push('documentation');
+            }
+            
+            // Refatoração
+            if (/^refactor:/i.test(title) || /^cleanup:/i.test(title) || /^clean:/i.test(title)) {
+              labelsToAdd.push('refactor');
+            }
+            
+            // Performance
+            if (/^perf:/i.test(title) || /^performance:/i.test(title) || /^optimize:/i.test(title)) {
+              labelsToAdd.push('performance');
+            }
+            
+            // Testes
+            if (/^test:/i.test(title) || /^tests:/i.test(title) || /^testing:/i.test(title)) {
+              labelsToAdd.push('test');
+            }
+            
+            // Chores (build, CI, etc)
+            if (/^chore:/i.test(title) || /^build:/i.test(title) || /^ci:/i.test(title)) {
+              labelsToAdd.push('chore');
+            }
+            
+            // === REGRAS DE PRIORIDADE/URGÊNCIA ===
+            
+            // Urgente/Crítico
+            if (/\b(urgent|critical|emergency|breaking)\b/i.test(title)) {
+              labelsToAdd.push('urgent');
+            }
+            
+            // === REGRAS POR ÁREA/ESCOPO ===
+            
+            // Frontend
+            if (/\b(ui|frontend|react|vue|angular|css|html|js|javascript|typescript)\b/i.test(title)) {
+              labelsToAdd.push('frontend');
+            }
+            
+            // Backend
+            if (/\b(api|backend|server|database|db|sql|mongodb|postgres)\b/i.test(title)) {
+              labelsToAdd.push('backend');
+            }
+            
+            // Security
+            if (/\b(security|auth|authentication|authorization|vulnerability|xss|csrf)\b/i.test(title)) {
+              labelsToAdd.push('security');
+            }
+            
+            // DevOps/Infrastructure
+            if (/\b(docker|kubernetes|k8s|deployment|infrastructure|aws|gcp|azure)\b/i.test(title)) {
+              labelsToAdd.push('devops');
+            }
+            
+            // === APLICAR LABELS ===
+            
+            if (labelsToAdd.length > 0) {
+              // Remove duplicatas
+              const uniqueLabels = [...new Set(labelsToAdd)];
               
-              // Determinar qual label adicionar baseado no título
-              let labelToAdd = 'bug';
-              if (/hotfix/i.test(title)) labelToAdd = 'hotfix';
-              if (/urgent|critical/i.test(title)) labelToAdd = 'urgent';
+              console.log(`Adding labels: ${uniqueLabels.join(', ')}`);
               
               try {
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: prNumber,
-                  labels: [labelToAdd]
+                  labels: uniqueLabels
                 });
                 
-                hasBugLabel = true;
-                console.log(`Added label: ${labelToAdd}`);
+                console.log(`✅ Successfully added labels: ${uniqueLabels.join(', ')}`);
+                
+                // Comentário opcional no PR (pode remover se não quiser)
+                const labelComment = `🏷️ **Auto-labeled** this PR: \`${uniqueLabels.join('`, `')}\``;
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: labelComment
+                });
                 
               } catch (error) {
-                console.error('Error adding label:', error);
+                console.error('❌ Error applying labels:', error);
+                core.setFailed(`Failed to apply labels: ${error.message}`);
               }
+            } else {
+              console.log('ℹ️ No matching patterns found in title - no labels to add');
             }
-            
-            // Definir output
-            core.setOutput('has_bug_label', hasBugLabel.toString());
-            
-            return {
-              hasBugLabel,
-              titleSuggestsBug,
-              currentLabels: currentLabelNames
-            };
-
-  auto-version:
-    runs-on: ubuntu-latest
-    needs: ensure-labels
-    
-    # Executa se o PR foi merged E tem label de bug (manual ou automático)
-    if: |
-      github.event.pull_request.merged == true &&
-      needs.ensure-labels.outputs.has_bug_label == 'true'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure Git (using PR author)
-        shell: bash
-        run: |
-          # Usar autor do PR quando possível
-          if [ "${{ github.event.pull_request.user.email }}" != "" ] && [ "${{ github.event.pull_request.user.email }}" != "null" ]; then
-            git config --local user.email "${{ github.event.pull_request.user.email }}"
-            git config --local user.name "${{ github.event.pull_request.user.login }}"
-            echo "Using PR author: ${{ github.event.pull_request.user.login }}"
-          else
-            git config --local user.email "${{ github.actor }}@users.noreply.github.com"
-            git config --local user.name "${{ github.actor }}"
-            echo "Using GitHub actor: ${{ github.actor }}"
-          fi
-
-      - name: Get latest version
-        id: get_version
-        shell: bash
-        run: |
-          git fetch --tags
-          
-          # Get all tags and filter semantic versions
-          LATEST_TAG=""
-          for tag in $(git tag -l); do
-            if [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              LATEST_TAG="$tag"
-            fi
-          done
-          
-          if [ -n "$LATEST_TAG" ]; then
-            LATEST_TAG=$(git tag -l | grep -v "[a-zA-Z]" | sort -V | tail -1)
-          fi
-          
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No previous tags found, starting with 1.0.0"
-            NEW_VERSION="1.0.0"
-            LATEST_TAG="none"
-          else
-            echo "Latest tag found: $LATEST_TAG"
-            
-            MAJOR=$(echo "$LATEST_TAG" | cut -d. -f1)
-            MINOR=$(echo "$LATEST_TAG" | cut -d. -f2)
-            PATCH=$(echo "$LATEST_TAG" | cut -d. -f3)
-            
-            NEW_PATCH=$((PATCH + 1))
-            NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          fi
-          
-          echo "New version will be: $NEW_VERSION"
-          
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "new_tag=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-      - name: Create new tag
-        shell: bash
-        run: |
-          NEW_TAG="${{ steps.get_version.outputs.new_tag }}"
-          echo "Creating tag: $NEW_TAG"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
-
-      - name: Generate changelog
-        id: generate_changelog
-        shell: bash
-        run: |
-          LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          
-          if [ "$LATEST_TAG" = "none" ]; then
-            CHANGES="- Initial release"
-          else
-            # Incluir o próprio PR no changelog
-            CHANGES="- $PR_TITLE (#$PR_NUMBER by @$PR_AUTHOR)"
-            
-            # Adicionar outros commits se houver
-            OTHER_CHANGES=$(git log "$LATEST_TAG"..HEAD --oneline --no-merges --grep="#$PR_NUMBER" --invert-grep | head -5 | sed 's/^/- /')
-            if [ -n "$OTHER_CHANGES" ]; then
-              CHANGES="$CHANGES"$'\n'"$OTHER_CHANGES"
-            fi
-          fi
-          
-          {
-            echo "changes<<EOF"
-            echo "$CHANGES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        shell: bash
-        run: |
-          NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
-          CHANGES="${{ steps.generate_changelog.outputs.changes }}"
-          LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          
-          RELEASE_NOTES="## $NEW_VERSION
-          
-          ### 🚨 Emergency Release
-          
-          **Trigger:** $PR_TITLE
-          
-          $CHANGES"
-          
-          if [ "$LATEST_TAG" != "none" ]; then
-            RELEASE_NOTES="$RELEASE_NOTES
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEW_VERSION"
-          fi
-          
-          gh release create "$NEW_VERSION" \
-            --title "🚨 $NEW_VERSION - Emergency Release" \
-            --notes "$RELEASE_NOTES"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update package.json version
-        shell: bash
-        run: |
-          if [ -f "package.json" ]; then
-            VERSION="${{ steps.get_version.outputs.new_version }}"
-            echo "Updating package.json to version $VERSION"
-            
-            npm version "$VERSION" --no-git-tag-version --allow-same-version
-            
-            git add package.json
-            if [ -f "package-lock.json" ]; then
-              git add package-lock.json
-            fi
-            
-            if git diff --staged --quiet; then
-              echo "No changes to commit"
-            else
-              git commit -m "chore: bump version to $VERSION [skip ci]"
-              git push origin main
-            fi
-          else
-            echo "No package.json found, skipping version update"
-          fi
-
-      - name: Summary
-        shell: bash
-        run: |
-          NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
-          LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          
-          {
-            echo "## 🚨 Emergency Release Created!"
-            echo ""
-            echo "**Version:** $NEW_VERSION"
-            echo "**Previous:** $LATEST_TAG"
-            echo "**Trigger:** $PR_TITLE"
-            echo "**Author:** ${{ github.event.pull_request.user.login }}"
-            echo ""
-            echo "### What happened:"
-            echo "- PR was automatically detected as a bug fix based on title/labels"
-            echo "- Emergency release was created automatically"
-            echo "- Version was bumped and released"
-          } >> $GITHUB_STEP_SUMMARY
