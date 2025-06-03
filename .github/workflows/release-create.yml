@@ -1,4 +1,4 @@
-name: Create Release (Manual Trigger)
+name: Create Release
 
 on:
   workflow_dispatch:
@@ -128,14 +128,14 @@ jobs:
           
           RELEASE_NOTES="## $NEW_VERSION
 
-          ### 🚀 What's Changed
-          
-          $CHANGES
-          
-          ### 📊 Release Info
-          - **Type**: $VERSION_TYPE release
-          - **Previous Version**: $CURRENT_VERSION
-          - **Released by**: @${{ github.actor }}"
+### 🚀 What's Changed
+
+$CHANGES
+
+### 📊 Release Info
+- **Type**: $VERSION_TYPE release
+- **Previous Version**: $CURRENT_VERSION
+- **Released by**: @${{ github.actor }}"
           
           gh release create "$NEW_VERSION" \
             --title "$NEW_VERSION" \
