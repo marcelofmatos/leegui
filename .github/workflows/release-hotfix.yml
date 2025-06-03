@@ -33,8 +33,14 @@ jobs:
       - name: Configure Git
         shell: bash
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          # Usar autor do PR, com fallback para GitHub Action
+          if [ "${{ github.event.pull_request.user.email }}" != "" ]; then
+            git config --local user.email "${{ github.event.pull_request.user.email }}"
+            git config --local user.name "${{ github.event.pull_request.user.login }}"
+          else
+            git config --local user.email "${{ github.actor }}@users.noreply.github.com"  
+            git config --local user.name "${{ github.actor }}"
+          fi
 
       - name: Get latest version
         id: get_version
