@@ -1,4 +1,4 @@
-name: Auto Version on PR Merge
+name: Auto Version on bugfix PR Merge
 
 on:
   pull_request:
@@ -93,12 +93,12 @@ jobs:
           
           RELEASE_NOTES="## $NEW_VERSION
 
-$CHANGES"
+          $CHANGES"
           
           if [ "$LATEST_TAG" != "none" ]; then
             RELEASE_NOTES="$RELEASE_NOTES
 
-**Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEW_VERSION"
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEW_VERSION"
           fi
           
           gh release create "$NEW_VERSION" \
