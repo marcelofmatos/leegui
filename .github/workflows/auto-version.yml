@@ -4,193 +4,175 @@ on:
   pull_request:
     types: [closed]
     branches: [ main, master ]
-  workflow_dispatch: # Permite execução manual
+  workflow_dispatch:
 
 jobs:
   auto-version:
     runs-on: ubuntu-latest
     
-    # Só executa se o PR foi merged (não apenas fechado)
     if: github.event.pull_request.merged == true
     
+    permissions:
+      contents: write
+    
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Busca todo o histórico para acessar as tags
+        fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Configure Git
+    - name: Setup Git
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
 
-    - name: Get latest version
-      id: get_version
+    - name: Get Version
+      id: version
       run: |
-        # Busca a última tag que segue o padrão semver (com ou sem v)
-        LATEST_TAG=$(git tag -l --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+
+        echo "=== Getting Current Version ==="
         
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-    - name: Create new tag
-      run: |
-        git tag ${{ steps.get_version.outputs.new_tag }}
-        git push origin ${{ steps.get_version.outputs.new_tag }}
-
-    - name: Generate changelog
-      id: generate_changelog
-      run: |
-        LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
-        echo "Creating changelog from: $LATEST_TAG"
+        # Fetch all tags
+        git fetch --tags
         
-        if [ "$LATEST_TAG" = "none" ]; then
-          echo "First release - using recent commits"
-          CHANGES="* Initial release"
+        # Get all tags
+        ALL_TAGS=$(git tag -l)
+        
+        if [ -z "$ALL_TAGS" ]; then
+          echo "No tags found - starting with 1.0.0"
+          CURRENT_VERSION="none"
+          NEW_VERSION="1.0.0"
         else
-          echo "Getting changes since $LATEST_TAG"
-          CHANGES=$(git log "$LATEST_TAG"..HEAD --oneline --no-merges | head -10 | sed 's/^/* /' || echo "* Minor updates")
+          echo "Found tags:"
+          echo "$ALL_TAGS"
           
-          if [ -z "$CHANGES" ]; then
-            CHANGES="* Minor updates and improvements"
+          # Find highest semantic version
+          HIGHEST_VERSION=""
+          HIGHEST_MAJOR=0
+          HIGHEST_MINOR=0
+          HIGHEST_PATCH=0
+          
+          echo "$ALL_TAGS" | while read -r tag; do
+            if [ -n "$tag" ]; then
+              # Clean tag (remove v prefix)
+              clean=$(echo "$tag" | sed 's/^v//')
+              
+              # Check if it matches x.y.z pattern
+              case "$clean" in
+                [0-9]*.[0-9]*.[0-9]*)
+                  echo "Valid version: $clean"
+                  
+                  major=$(echo "$clean" | cut -d. -f1)
+                  minor=$(echo "$clean" | cut -d. -f2)
+                  patch=$(echo "$clean" | cut -d. -f3)
+                  
+                  # Simple comparison
+                  if [ "$major" -gt "$HIGHEST_MAJOR" ] || \
+                     ( [ "$major" -eq "$HIGHEST_MAJOR" ] && [ "$minor" -gt "$HIGHEST_MINOR" ] ) || \
+                     ( [ "$major" -eq "$HIGHEST_MAJOR" ] && [ "$minor" -eq "$HIGHEST_MINOR" ] && [ "$patch" -gt "$HIGHEST_PATCH" ] ); then
+                    echo "NEW_VERSION=$major.$minor.$patch" > /tmp/version.txt
+                    echo "CURRENT_TAG=$tag" > /tmp/current.txt
+                  fi
+                  ;;
+              esac
+            fi
+          done
+          
+          if [ -f "/tmp/version.txt" ]; then
+            source /tmp/version.txt
+            source /tmp/current.txt
+            echo "Current highest version: $NEW_VERSION"
+            
+            # Increment patch
+            current_patch=$(echo "$NEW_VERSION" | cut -d. -f3)
+            new_patch=$((current_patch + 1))
+            major=$(echo "$NEW_VERSION" | cut -d. -f1)
+            minor=$(echo "$NEW_VERSION" | cut -d. -f2)
+            
+            NEW_VERSION="$major.$minor.$new_patch"
+            CURRENT_VERSION="$CURRENT_TAG"
+          else
+            echo "No semantic versions found - starting with 1.0.0"
+            CURRENT_VERSION="none"
+            NEW_VERSION="1.0.0"
           fi
         fi
         
-        echo "Changelog:"
-        echo "$CHANGES"
+        echo "Current: $CURRENT_VERSION"
+        echo "New: $NEW_VERSION"
+        
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create Tag
+      run: |
+        NEW_TAG="${{ steps.version.outputs.new_version }}"
+        echo "Creating tag: $NEW_TAG"
+        
+        git tag "$NEW_TAG"
+        git push origin "$NEW_TAG"
+        
+        echo "Tag $NEW_TAG created successfully"
+
+    - name: Generate Changelog
+      id: changelog
+      run: |
+        CURRENT="${{ steps.version.outputs.current_version }}"
+        
+        if [ "$CURRENT" = "none" ]; then
+          echo "First release"
+          CHANGES="- Initial release"
+        else
+          echo "Getting changes since $CURRENT"
+          CHANGES=$(git log "$CURRENT"..HEAD --oneline --no-merges | head -20 | sed 's/^/- /')
+          
+          if [ -z "$CHANGES" ]; then
+            CHANGES="- Minor updates and improvements"
+          fi
+        fi
         
         echo "changes<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGES" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Create GitHub Release
+    - name: Create Release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.get_version.outputs.new_tag }}
-        release_name: Release ${{ steps.get_version.outputs.new_version }}
+        tag_name: ${{ steps.version.outputs.new_version }}
+        release_name: Release ${{ steps.version.outputs.new_version }}
         body: |
-          ## Changes in ${{ steps.get_version.outputs.new_version }}
+          ## Release ${{ steps.version.outputs.new_version }}
           
-          ${{ steps.generate_changelog.outputs.changes }}
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.latest_tag }}...${{ steps.get_version.outputs.new_tag }}
+          ${{ steps.changelog.outputs.changes }}
         draft: false
         prerelease: false
 
-    - name: Update package.json version (if exists)
+    - name: Update package.json
       run: |
         if [ -f "package.json" ]; then
-          npm version ${{ steps.get_version.outputs.new_version }} --no-git-tag-version
+          echo "Updating package.json version"
+          npm version ${{ steps.version.outputs.new_version }} --no-git-tag-version --allow-same-version
+          
           git add package.json
           if [ -f "package-lock.json" ]; then
             git add package-lock.json
           fi
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_version }}" || echo "No changes to commit"
-          git push origin main
-        fi
-
-    - name: Summary
-      run: |
-        {
-          echo "## 🚀 New Release Created!"
-          echo ""
-          echo "**Version:** ${{ steps.get_version.outputs.new_version }}"
-          echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}"
-          echo ""
-          echo "### Changes:"
-          echo "${{ steps.generate_changelog.outputs.changes }}"
-        } >> $GITHUB_STEP_SUMMARY | head -n1)
-        
-        if [ -z "$LATEST_TAG" ]; then
-          # Se não há tags, começa com 1.0.0
-          echo "No previous tags found, starting with 1.0.0"
-          NEW_VERSION="1.0.0"
-        else
-          echo "Latest tag found: $LATEST_TAG"
           
-          # Remove o 'v' se presente
-          VERSION_NUMBER=${LATEST_TAG#v}
-          
-          # Separa os componentes da versão
-          IFS='.' read -ra VERSION_PARTS <<< "$VERSION_NUMBER"
-          MAJOR=${VERSION_PARTS[0]}
-          MINOR=${VERSION_PARTS[1]}
-          PATCH=${VERSION_PARTS[2]}
-          
-          # Incrementa o patch
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-        fi
-        
-        NEW_TAG="$NEW_VERSION"
-        echo "New version will be: $NEW_TAG"
-        
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-    - name: Create new tag
-      run: |
-        git tag ${{ steps.get_version.outputs.new_tag }}
-        git push origin ${{ steps.get_version.outputs.new_tag }}
-
-    - name: Generate changelog
-      id: changelog
-      run: |
-        if [ -n "${{ steps.get_version.outputs.latest_tag }}" ]; then
-          # Gera changelog desde a última tag
-          CHANGELOG=$(git log ${{ steps.get_version.outputs.latest_tag }}..HEAD --pretty=format:"* %s (%h)" --no-merges)
-        else
-          # Se não há tag anterior, pega os últimos commits
-          CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges -10)
-        fi
-        
-        if [ -z "$CHANGELOG" ]; then
-          CHANGELOG="* Minor updates and improvements"
-        fi
-        
-        echo "changelog<<EOF" >> $GITHUB_OUTPUT
-        echo "$CHANGELOG" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get_version.outputs.new_tag }}
-        release_name: Release ${{ steps.get_version.outputs.new_tag }}
-        body: |
-          ## Changes in ${{ steps.get_version.outputs.new_tag }}
-          
-          ${{ steps.changelog.outputs.changelog }}
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.latest_tag }}...${{ steps.get_version.outputs.new_tag }}
-        draft: false
-        prerelease: false
-
-    - name: Update package.json version (if exists)
-      run: |
-        if [ -f "package.json" ]; then
-          npm version ${{ steps.get_version.outputs.new_version }} --no-git-tag-version
-          git add package.json
-          if [ -f "package-lock.json" ]; then
-            git add package-lock.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+            git push origin main
           fi
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_version }}" || echo "No changes to commit"
-          git push origin main
+        else
+          echo "No package.json found, skipping"
         fi
 
     - name: Summary
       run: |
-        echo "## 🚀 New Release Created!" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Release Created!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ steps.get_version.outputs.new_tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Changes:" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.changelog.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
+        echo "**New Version:** ${{ steps.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Previous:** ${{ steps.version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
