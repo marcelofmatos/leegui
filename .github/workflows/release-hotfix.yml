@@ -13,7 +13,15 @@ jobs:
   auto-version:
     runs-on: ubuntu-latest
     
-    if: github.event.pull_request.merged == true
+    # Só executa se o PR foi merged E tem label de urgência/bugfix
+    if: |
+      github.event.pull_request.merged == true &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'urgent') ||
+        contains(github.event.pull_request.labels.*.name, 'bug') ||
+        contains(github.event.pull_request.labels.*.name, 'bugfix') ||
+        contains(github.event.pull_request.labels.*.name, 'hotfix')
+      )
     
     steps:
       - name: Checkout code
@@ -23,16 +31,29 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
+        shell: bash
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
       - name: Get latest version
         id: get_version
+        shell: bash
         run: |
           git fetch --tags
           
-          LATEST_TAG=$(git tag -l | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          # Get all tags and filter semantic versions using simple approach
+          LATEST_TAG=""
+          for tag in $(git tag -l); do
+            if [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              LATEST_TAG="$tag"
+            fi
+          done
+          
+          # If we found semantic tags, get the highest one
+          if [ -n "$LATEST_TAG" ]; then
+            LATEST_TAG=$(git tag -l | grep -v "[a-zA-Z]" | sort -V | tail -1)
+          fi
           
           if [ -z "$LATEST_TAG" ]; then
             echo "No previous tags found, starting with 1.0.0"
@@ -56,6 +77,7 @@ jobs:
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Create new tag
+        shell: bash
         run: |
           NEW_TAG="${{ steps.get_version.outputs.new_tag }}"
           echo "Creating tag: $NEW_TAG"
@@ -64,6 +86,7 @@ jobs:
 
       - name: Generate changelog
         id: generate_changelog
+        shell: bash
         run: |
           LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
           
@@ -86,19 +109,22 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
+        shell: bash
         run: |
           NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
           CHANGES="${{ steps.generate_changelog.outputs.changes }}"
           LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
           
           RELEASE_NOTES="## $NEW_VERSION
-
+          
+          ### 🚨 Emergency Release
+          
           $CHANGES"
           
           if [ "$LATEST_TAG" != "none" ]; then
             RELEASE_NOTES="$RELEASE_NOTES
-
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEW_VERSION"
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEW_VERSION"
           fi
           
           gh release create "$NEW_VERSION" \
@@ -108,6 +134,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update package.json version
+        shell: bash
         run: |
           if [ -f "package.json" ]; then
             VERSION="${{ steps.get_version.outputs.new_version }}"
@@ -131,16 +158,18 @@ jobs:
           fi
 
       - name: Summary
+        shell: bash
         run: |
           NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
           LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
           CHANGES="${{ steps.generate_changelog.outputs.changes }}"
           
           {
-            echo "## 🚀 New Release Created!"
+            echo "## 🚨 Emergency Release Created!"
             echo ""
             echo "**Version:** $NEW_VERSION"
             echo "**Previous:** $LATEST_TAG"
+            echo "**Reason:** Urgent/Bugfix PR merged"
             echo ""
             echo "### Changes:"
             echo "$CHANGES"
