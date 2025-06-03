@@ -41,7 +41,7 @@ jobs:
         git push origin ${{ steps.get_version.outputs.new_tag }}
 
     - name: Generate changelog
-      id: changelog
+      id: generate_changelog
       run: |
         if [ -n "${{ steps.get_version.outputs.latest_tag }}" ]; then
           # Gera changelog desde a última tag
@@ -55,7 +55,7 @@ jobs:
           CHANGELOG="* Minor updates and improvements"
         fi
         
-        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGELOG" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
@@ -69,7 +69,7 @@ jobs:
         body: |
           ## Changes in ${{ steps.get_version.outputs.new_version }}
           
-          ${{ steps.changelog.outputs.changelog }}
+          ${{ steps.generate_changelog.outputs.changes }}
           
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.get_version.outputs.latest_tag }}...${{ steps.get_version.outputs.new_tag }}
         draft: false
@@ -95,7 +95,7 @@ jobs:
         echo "**Previous:** ${{ steps.get_version.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Changes:" >> $GITHUB_STEP_SUMMARY
-        echo "${{ steps.changelog.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY | head -n1)
+        echo "${{ steps.generate_changelog.outputs.changes }}" >> $GITHUB_STEP_SUMMARY | head -n1)
         
         if [ -z "$LATEST_TAG" ]; then
           # Se não há tags, começa com 1.0.0
