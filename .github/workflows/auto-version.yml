@@ -43,31 +43,27 @@ jobs:
     - name: Generate changelog
       id: generate_changelog
       run: |
-        set -e
-        
         LATEST_TAG="${{ steps.get_version.outputs.latest_tag }}"
-        echo "Generating changelog from: $LATEST_TAG"
+        echo "Creating changelog from: $LATEST_TAG"
         
-        if [ "$LATEST_TAG" = "none" ] || [ -z "$LATEST_TAG" ]; then
-          echo "No previous tag found, using recent commits"
-          CHANGELOG=$(git log --oneline --no-merges -10 | sed 's/^/* /')
+        if [ "$LATEST_TAG" = "none" ]; then
+          echo "First release - using recent commits"
+          CHANGES="* Initial release"
         else
-          echo "Getting commits since $LATEST_TAG"
-          CHANGELOG=$(git log "${LATEST_TAG}"..HEAD --oneline --no-merges | sed 's/^/* /')
+          echo "Getting changes since $LATEST_TAG"
+          CHANGES=$(git log "$LATEST_TAG"..HEAD --oneline --no-merges | head -10 | sed 's/^/* /' || echo "* Minor updates")
+          
+          if [ -z "$CHANGES" ]; then
+            CHANGES="* Minor updates and improvements"
+          fi
         fi
         
-        if [ -z "$CHANGELOG" ]; then
-          echo "No commits found, using default message"
-          CHANGELOG="* Minor updates and improvements"
-        fi
+        echo "Changelog:"
+        echo "$CHANGES"
         
-        echo "Generated changelog:"
-        echo "$CHANGELOG"
-        
-        # Save changelog to output
-        echo "changes<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
-        echo "$CHANGELOG" >> $GITHUB_OUTPUT
-        echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       uses: actions/create-release@v1
