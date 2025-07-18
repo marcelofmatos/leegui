@@ -12,7 +12,7 @@
         "adldap2/adldap2-laravel": "^6.0",
         "barryvdh/laravel-cors": "^0.11.3",
         "fideloper/proxy": "^4.0",
-        "illuminate/html": "^5.0",
+
         "laravel/framework": "5.8.*",
         "laravel/tinker": "^1.0",
         "laravelcollective/html": "^5.5.0",
