@@ -1,4 +1,4 @@
-# Leegui - Portainer API Frontend
+# LeeGUI - Portainer API Frontend
 
 Interface web customizável para gerenciamento de containers Docker através da API do Portainer, com suporte a multi-tenancy e autenticação LDAP.
 
