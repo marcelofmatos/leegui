@@ -29,7 +29,13 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --ignor
 # Copy application files
 COPY . .
 
-RUN composer dump-autoload --optimize
+# Clear package discovery cache and generate autoload
+RUN composer clear-cache
+RUN composer dump-autoload --optimize --no-scripts
+
+# Alternative approach if discovery issues persist:
+# RUN rm -f bootstrap/cache/packages.php
+# RUN composer dump-autoload --optimize --classmap-authoritative
 
 # Production stage
 FROM php:7.4-fpm-alpine

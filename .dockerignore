@@ -1,0 +1,41 @@
+# Ignore development files and caches
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Composer cache
+vendor/
+composer.lock.old
+
+# Laravel caches
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+.phpunit.result.cache
+phpunit.xml
+tests/
+
+# Documentation
+README.md
+docs/
