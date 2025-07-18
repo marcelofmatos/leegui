@@ -11,25 +11,17 @@ jobs:
   phpstan:
     name: PHPStan Analysis
     runs-on: ubuntu-latest
+    container:
+      image: php:7.4-cli
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '7.4'
-        extensions: mbstring, dom, fileinfo
-    
-    - name: Cache Composer dependencies
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: ${{ runner.os }}-php-
-    
     - name: Install dependencies
       run: |
+        apt-get update && apt-get install -y git unzip
+        curl -sS https://getcomposer.org/installer | php
+        mv composer.phar /usr/local/bin/composer
         composer install --prefer-dist --no-progress
         composer require --dev phpstan/phpstan
     
@@ -39,11 +31,16 @@ jobs:
   php-cs-fixer:
     name: PHP CS Fixer
     runs-on: ubuntu-latest
+    container:
+      image: php:7.4-cli
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run PHP-CS-Fixer
-      uses: docker://oskarstark/php-cs-fixer-ga
-      with:
-        args: --config=.php-cs-fixer.php --diff --dry-run
+    - name: Install PHP CS Fixer
+      run: |
+        curl -L https://github.com/FriendsOfPHP/PHP-CS-Fixer/releases/download/v3.13.0/php-cs-fixer.phar -o php-cs-fixer
+        chmod +x php-cs-fixer
+    
+    - name: Run PHP CS Fixer
+      run: ./php-cs-fixer fix --dry-run --diff --verbose
