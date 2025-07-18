@@ -49,11 +49,12 @@ jobs:
         mkdir -p database bootstrap/cache
         touch database/database.sqlite
         chmod -R 775 storage bootstrap/cache
-        php artisan migrate --force --no-interaction --env=testing
+        # Fix PackageManifest issue
+        php -r "\$packages = json_decode(file_get_contents('vendor/composer/installed.json'), true); if (isset(\$packages['packages'])) { foreach (\$packages['packages'] as &\$package) { if (!isset(\$package['name'])) { \$package['name'] = 'unknown/package'; } } file_put_contents('vendor/composer/installed.json', json_encode(\$packages)); }"
+        php artisan migrate --force --no-interaction
       env:
         DB_CONNECTION: sqlite
         DB_DATABASE: database/database.sqlite
-        APP_ENV: testing
 
     - name: Execute tests
       run: vendor/bin/phpunit
