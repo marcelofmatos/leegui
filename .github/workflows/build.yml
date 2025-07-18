@@ -43,12 +43,16 @@ jobs:
 
     - name: Setup project
       run: |
-        composer install --prefer-dist --no-progress
+        COMPOSER_DISCARD_CHANGES=true composer install --prefer-dist --no-progress --no-interaction --no-scripts
+        composer dump-autoload --no-scripts
         cp .env.example .env
         php artisan key:generate
         mkdir -p database
         touch database/database.sqlite
-        php artisan migrate --force
+        php artisan migrate --force --no-interaction
+      env:
+        DB_CONNECTION: sqlite
+        DB_DATABASE: database/database.sqlite
 
     - name: Execute tests
       run: vendor/bin/phpunit
@@ -64,11 +68,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '14'
-        cache: 'npm'
     
     - name: Build assets
       run: |
-        npm ci
+        npm install
         npm run production
     
     - name: Upload assets
