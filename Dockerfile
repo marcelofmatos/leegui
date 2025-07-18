@@ -14,8 +14,8 @@ RUN apk add --no-cache \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd
 
-# Install Composer 1
-COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
+# Install Composer 2
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
