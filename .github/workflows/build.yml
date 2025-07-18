@@ -44,9 +44,8 @@ jobs:
     - name: Setup project
       run: |
         COMPOSER_DISCARD_CHANGES=true composer install --prefer-dist --no-progress --no-interaction --no-scripts
-        composer dump-autoload --no-scripts
         cp .env.example .env
-        php artisan key:generate
+        sed -i 's/^APP_KEY=.*/APP_KEY=base64:72v5RiEiJd2GTMKw0oykkFu8SMVAdHlmUQqaVVMneE=/' .env
         mkdir -p database
         touch database/database.sqlite
         php artisan migrate --force --no-interaction
