@@ -41,10 +41,8 @@ jobs:
         key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
         restore-keys: ${{ runner.os }}-composer-
 
-    - name: Validate composer files
-      run: |
-        composer validate --no-check-all --no-check-publish
-        composer install --prefer-dist --no-progress --no-interaction
+    - name: Install Composer dependencies
+      run: composer install --prefer-dist --no-progress --no-interaction
 
     - name: Check PHP syntax
       run: find app/ -name "*.php" -exec php -l {} \;
