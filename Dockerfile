@@ -1,33 +1,74 @@
-FROM php:7.4-fpm
+# Build stage
+FROM php:7.4-fpm-alpine AS builder
 
-# Arguments defined in docker-compose.yml
-ARG user=www-data
-ARG uid=1000
-
-# Install system dependencies
-RUN apt-get update \
-    && apt-get install -y \
-        curl \
-        git \
-        libpng-dev \
-        libldap2-dev \
-        libonig-dev \
-        libxml2-dev \
-        libsqlite3-dev \
-        unzip \
-        zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apk add --no-cache \
+    curl \
+    git \
+    unzip \
+    libpng-dev \
+    openldap-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    sqlite-dev
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
 
-# Get latest Composer
-COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-COPY --chown=www-data:www-data . /var/www/html/
+WORKDIR /var/www/html
+
+# Copy composer files first for better caching
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+# Copy application files
+COPY . .
+
+# Generate autoloader and optimize
+RUN composer dump-autoload --optimize \
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Production stage
+FROM php:7.4-fpm-alpine
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    libpng \
+    openldap \
+    oniguruma \
+    sqlite \
+    nginx \
+    supervisor
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
+
+# Create user
+RUN addgroup -g 1000 -S www && \
+    adduser -u 1000 -S www -G www
+
+# Copy from builder
+COPY --from=builder --chown=www:www /var/www/html /var/www/html
+
+# Copy nginx config
+COPY --chown=www:www nginx/default.conf /etc/nginx/sites-available/default
 
 # Set working directory
 WORKDIR /var/www/html
 
-#ENTRYPOINT /var/www/html/entrypoint.sh
+# Create necessary directories
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && chown -R www:www storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Switch to non-root user
+USER www
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
