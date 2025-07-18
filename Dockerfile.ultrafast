@@ -1,0 +1,44 @@
+# Ultra-fast Dockerfile using pre-built image
+FROM serversideup/php:7.4-fpm AS builder
+
+# Install Composer 2
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# Copy dependency files for caching
+COPY composer.json composer.lock ./
+
+# Install dependencies with optimizations
+ENV COMPOSER_MEMORY_LIMIT=-1
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --optimize-autoloader
+
+# Copy application
+COPY . .
+
+# Generate optimized autoload
+RUN composer dump-autoload --optimize --no-scripts
+
+# Production stage
+FROM serversideup/php:7.4-fpm
+
+# Copy from builder
+COPY --from=builder --chown=www-data:www-data /var/www/html /var/www/html
+
+WORKDIR /var/www/html
+
+# Setup Laravel permissions
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+USER www-data
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
