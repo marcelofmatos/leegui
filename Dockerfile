@@ -15,8 +15,8 @@ RUN apk add --no-cache \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Install Composer 1 (compatible with Laravel 5.8)
+COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
@@ -27,8 +27,11 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 # Copy application files
 COPY . .
 
-# Generate autoloader and optimize
-RUN composer dump-autoload --optimize \
+# Apply PackageManifest fix and generate autoloader
+COPY fix-packagemanifest.sh ./
+RUN chmod +x fix-packagemanifest.sh \
+    && ./fix-packagemanifest.sh \
+    && composer dump-autoload --optimize \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache

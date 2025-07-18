@@ -8,12 +8,12 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^7.1.3",
+        "php": "^7.1.3|^8.0",
         "adldap2/adldap2-laravel": "^6.0",
         "barryvdh/laravel-cors": "^0.11.3",
         "fideloper/proxy": "^4.0",
 
-        "laravel/framework": "5.8.*",
+        "laravel/framework": "^5.8.38",
         "laravel/tinker": "^1.0",
         "laravelcollective/html": "^5.5.0",
         "mangati/portainer-api": "^0.4.0"
