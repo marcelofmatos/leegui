@@ -29,11 +29,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --ignor
 # Copy application files
 COPY . .
 
-# Apply PackageManifest fix and generate autoloader
-COPY fix-packagemanifest.sh ./
-RUN chmod +x fix-packagemanifest.sh \
-    && ./fix-packagemanifest.sh \
-    && composer dump-autoload --optimize
+RUN composer dump-autoload --optimize
 
 # Production stage
 FROM php:7.4-fpm-alpine
