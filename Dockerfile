@@ -7,22 +7,24 @@ RUN apk add --no-cache \
     git \
     unzip \
     libpng-dev \
-    openldap-dev \
     oniguruma-dev \
     libxml2-dev \
     sqlite-dev
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
+RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd
 
-# Install Composer 1 (compatible with Laravel 5.8)
+# Install Composer 1
 COPY --from=composer:1 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy composer files for better caching
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+# Copy composer.json only
+COPY composer.json ./
+
+# Install dependencies with minimal memory
+ENV COMPOSER_MEMORY_LIMIT=-1
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --ignore-platform-reqs
 
 # Copy application files
 COPY . .
@@ -31,25 +33,21 @@ COPY . .
 COPY fix-packagemanifest.sh ./
 RUN chmod +x fix-packagemanifest.sh \
     && ./fix-packagemanifest.sh \
-    && composer dump-autoload --optimize \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+    && composer dump-autoload --optimize
 
 # Production stage
 FROM php:7.4-fpm-alpine
 
-# Install runtime dependencies only
+# Install runtime dependencies
 RUN apk add --no-cache \
     libpng \
-    openldap \
     oniguruma \
     sqlite \
     nginx \
     supervisor
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd ldap
+RUN docker-php-ext-install pdo_sqlite mbstring exif pcntl bcmath gd
 
 # Create user
 RUN addgroup -g 1000 -S www && \
@@ -57,9 +55,6 @@ RUN addgroup -g 1000 -S www && \
 
 # Copy from builder
 COPY --from=builder --chown=www:www /var/www/html /var/www/html
-
-# Copy nginx config
-COPY --chown=www:www nginx/default.conf /etc/nginx/sites-available/default
 
 # Set working directory
 WORKDIR /var/www/html
